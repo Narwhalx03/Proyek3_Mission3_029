@@ -1,0 +1,2 @@
+<h3> Mengenai pemahaman terkait dengan gerhana</h3>
+<p> Gerhana matahari adalah fenomena astronomis ketika Bulan bergerak di antara Matahari dan Bumi, menghalangi sebagian atau seluruh cahaya Matahari untuk mencapai Bumi. Kejadian ini hanya terjadi pada fase Bulan baru ketika ketiga benda langit tersebut berada dalam satu garis lurus. 
