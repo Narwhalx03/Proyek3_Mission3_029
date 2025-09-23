@@ -2,41 +2,27 @@
 
 use CodeIgniter\Router\RouteCollection;
 
-/**
- * @var RouteCollection $routes
- */
+/** @var RouteCollection $routes */
 
-// Rute Halaman Utama & Berita
-// Keduanya memerlukan login (filter 'auth')
-$routes->get('/home', 'Home::index', ['filter' => 'auth']);
-$routes->get('/home/berita', 'Berita::index', ['filter' => 'auth']);
+// Arahkan root ke login
+$routes->get('/', 'Login::index');
 
-// Rute Autentikasi (Login & Logout)
+// Rute Autentikasi
 $routes->get('/login', 'Login::index');
 $routes->post('/login/process', 'Login::process');
 $routes->get('/logout', 'Login::logout');
 
-// Rute Dashboard berdasarkan Role
-$routes->get('/admin/dashboard', 'AdminController::index', ['filter' => 'auth']);
-$routes->get('/student/dashboard', 'StudentController::index', ['filter' => 'auth']);
-$routes->get('/student/enroll/(:num)', 'StudentController::enroll/$1', ['filter' => 'auth']);
-$routes->get('/student/unenroll/(:num)', 'StudentController::unenroll/$1', ['filter' => 'auth']);
-$routes->resource('admin/courses', ['controller' => 'CourseController', 'filter' => 'admin']);
-$routes->get('/student', 'Student::index'); // Menampilkan daftar
-$routes->get('/student/create', 'Student::create'); // Menampilkan form
-$routes->post('/student/store', 'Student::store'); // Memproses form
-$routes->resource('mahasiswa', ['controller' => 'MahasiswaController', 'filter' => 'admin']);
-$routes->group('mahasiswa', function ($routes) {
-    $routes->get('/', 'Mahasiswa::index');
-    $routes->get('new', 'Mahasiswa::new');
-    $routes->post('create', 'Mahasiswa::create');
-});
+// Rute Dashboard
+$routes->get('/admin/dashboard', 'AdminController::index');
+$routes->get('/student/dashboard', 'StudentController::index');
 
-// Mengarahkan halaman root (/) ke halaman login
-$routes->get('/', 'Login::index');
+// Rute Admin
+$routes->get('mahasiswa/reset_password/(:num)', 'MahasiswaController::resetPassword/$1');
+$routes->resource('mahasiswa', ['controller' => 'MahasiswaController']);
+$routes->resource('admin/courses', ['controller' => 'CourseController']);
 
-/*
- * Fungsi '/mahasiswa' sekarang ditangani oleh route group di atas.
- */
-// $routes->get('/mahasiswa/display', 'Mahasiswa::display');
-// $routes->get('/dosen/display', 'Dosen::display');
+// Rute Student
+$routes->get('/student/enroll', 'EnrollmentController::new');
+$routes->post('/student/enroll', 'EnrollmentController::create');
+$routes->get('/student/enroll/(:num)', 'StudentController::enroll/$1'); 
+$routes->get('/student/unenroll/(:num)', 'StudentController::unenroll/$1'); 

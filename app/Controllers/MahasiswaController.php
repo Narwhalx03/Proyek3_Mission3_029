@@ -36,43 +36,53 @@ class MahasiswaController extends BaseController
      */
     public function create()
 {
-    // 1. Panggil helper 'text' untuk bisa menggunakan fungsi random_string()
     helper('text');
+    $plainPassword = random_string('alnum', 8); // Buat password acak
 
-    // 2. Buat password acak (8 karakter, alfanumerik)
-    $plainPassword = random_string('alnum', 8);
-
-    // 3. Siapkan data untuk tabel 'user', gunakan password acak yang sudah di-hash
-    $userModel = new \App\Models\UserModel();
-    $userData = [
-        'username'  => $this->request->getPost('nim'),
-        'password'  => password_hash($plainPassword, PASSWORD_DEFAULT), // <-- Gunakan password acak
-        'full_name' => $this->request->getPost('nama_lengkap'),
-        'role'      => 'Student'
+    $rules = [
+        'nim'           => 'required|is_unique[user.username]',
+        'nama_lengkap'  => 'required|min_length[3]',
+        'tanggal_lahir' => 'required|valid_date',
+        'entry_year'    => 'required|integer|exact_length[4]'
     ];
 
-    // 4. Coba simpan data user dan cek keberhasilannya
-    if ($userModel->insert($userData)) {
-        $userId = $userModel->getInsertID();
-        
-        $mahasiswaModel = new \App\Models\MahasiswaModel();
-        $mahasiswaData = [
-            'user_id'       => $userId,
-            'nim'           => $this->request->getPost('nim'),
-            'nama_lengkap'  => $this->request->getPost('nama_lengkap'),
-            'tanggal_lahir' => $this->request->getPost('tanggal_lahir'),
-            'entry_year'    => $this->request->getPost('entry_year')
-        ];
-        $mahasiswaModel->insert($mahasiswaData);
-
-        // 5. Siapkan pesan sukses yang berisi username dan password baru
-        $successMessage = "Mahasiswa baru berhasil ditambahkan! <br><strong>Username:</strong> " . esc($this->request->getPost('nim')) . " <br><strong>Password:</strong> " . esc($plainPassword);
-
-        return redirect()->to('/mahasiswa')->with('success', $successMessage);
-
-    } else {
-        return redirect()->back()->withInput()->with('error', 'Gagal menyimpan data. Kemungkinan NIM sudah terdaftar.');
+    if (!$this->validate($rules)) {
+        return $this->response->setJSON(['success' => false, 'errors' => $this->validator->getErrors(), 'csrf' => csrf_hash()]);
     }
+
+    $userModel = new \App\Models\UserModel();
+    $mahasiswaModel = new \App\Models\MahasiswaModel();
+    
+    // 1. Buat data user
+     $userData = [
+        'username'  => $this->request->getPost('nim'),
+        'password'  => password_hash($plainPassword, PASSWORD_DEFAULT),
+        'full_name' => $this->request->getPost('nama_lengkap'),
+        'role'      => 'Student',
+        'last_known_password' => $plainPassword 
+    ];
+    
+    $userModel->insert($userData);
+    $userId = $userModel->getInsertID();
+
+    // 2. Buat data mahasiswa yang terhubung dengan user_id
+    $mahasiswaData = [
+        'user_id'       => $userId,
+        'nim'           => $this->request->getPost('nim'),
+        'nama_lengkap'  => $this->request->getPost('nama_lengkap'),
+        'tanggal_lahir' => $this->request->getPost('tanggal_lahir'),
+        'entry_year'    => $this->request->getPost('entry_year')
+    ];
+    $mahasiswaModel->insert($mahasiswaData);
+    
+    $newStudent = $mahasiswaModel->findStudentById($mahasiswaModel->getInsertID());
+
+    return $this->response->setJSON([
+        'success' => true,
+        'message' => 'Student added successfully!',
+        'student' => $newStudent,
+        'csrf'    => csrf_hash()
+    ]);
 }
 
 public function show($id = null)
@@ -91,65 +101,117 @@ public function show($id = null)
     }
 
     public function delete($id = null)
-    {
-        $mahasiswaModel = new MahasiswaModel();
+{
+    try {
+        $mahasiswaModel = new \App\Models\MahasiswaModel();
         $userModel = new \App\Models\UserModel();
 
         // Cari data mahasiswa untuk mendapatkan user_id
         $student = $mahasiswaModel->find($id);
 
         if ($student) {
-            // Hapus data di tabel 'user', maka data di 'mahasiswa' akan ikut terhapus
+            // Hapus data di tabel 'user', data di 'mahasiswa' akan ikut terhapus otomatis
             $userModel->delete($student['user_id']);
-            return redirect()->to('/mahasiswa')->with('success', 'Student deleted successfully.');
+            
+            // Kirim respons sukses dalam format JSON
+            return $this->response->setJSON(['success' => true, 'message' => 'Student deleted successfully.']);
+        } else {
+            return $this->response->setJSON(['success' => false, 'message' => 'Student not found.'])->setStatusCode(404);
         }
-
-        return redirect()->to('/mahasiswa')->with('error', 'Student not found.');
+    } catch (\Exception $e) {
+        return $this->response->setJSON(['success' => false, 'message' => $e->getMessage()])->setStatusCode(500);
     }
+}
 
     public function edit($id = null)
-    {
-        $mahasiswaModel = new MahasiswaModel();
-        $data = [
-            'title'   => 'Edit Student',
-            'student' => $mahasiswaModel->findStudentById($id) // Kita pakai lagi fungsi yang sudah ada
-        ];
+{
+    $mahasiswaModel = new \App\Models\MahasiswaModel();
+    $student = $mahasiswaModel->findStudentById($id);
 
-        if (empty($data['student'])) {
-            throw new \CodeIgniter\Exceptions\PageNotFoundException('Cannot find the student item: ' . $id);
-        }
-
-        return view('mahasiswa/edit', $data);
+    if ($student) {
+        // Jika data ditemukan, kirim sebagai respons JSON
+        return $this->response->setJSON(['success' => true, 'student' => $student]);
     }
 
-    /**
-     * Memproses data dari form edit
-     */
+    // Jika tidak ditemukan, kirim error 404
+    return $this->response->setJSON(['success' => false, 'message' => 'Student not found.'])->setStatusCode(404);
+}
     public function update($id = null)
+{
+    // Cari data mahasiswa untuk mendapatkan user_id
+    $mahasiswaModel = new \App\Models\MahasiswaModel();
+    $student = $mahasiswaModel->find($id);
+
+    // Aturan validasi (nim harus unik, tapi abaikan data nim milik mahasiswa ini sendiri)
+    $rules = [
+        'nim'           => "required|is_unique[mahasiswa.nim,id,{$id}]",
+        'nama_lengkap'  => 'required|min_length[3]',
+        'tanggal_lahir' => 'required|valid_date',
+        'entry_year'    => 'required|integer|exact_length[4]'
+    ];
+
+    if (!$this->validate($rules)) {
+        // Jika validasi gagal
+        return $this->response->setJSON(['success' => false, 'errors' => $this->validator->getErrors()]);
+    }
+
+    // Jika validasi berhasil
+    $userModel = new \App\Models\UserModel();
+
+    // 1. Update data di tabel user
+    $userData = [
+        'full_name' => $this->request->getPost('nama_lengkap'),
+        'username'  => $this->request->getPost('nim')
+    ];
+    $userModel->update($student['user_id'], $userData);
+
+    // 2. Update data di tabel mahasiswa
+    $mahasiswaData = [
+        'nim'           => $this->request->getPost('nim'),
+        'nama_lengkap'  => $this->request->getPost('nama_lengkap'),
+        'tanggal_lahir' => $this->request->getPost('tanggal_lahir'),
+        'entry_year'    => $this->request->getPost('entry_year')
+    ];
+    $mahasiswaModel->update($id, $mahasiswaData);
+
+    // Kirim session flash untuk pesan sukses di halaman berikutnya
+    session()->setFlashdata('success', 'Student data updated successfully.');
+
+    // Kirim respons sukses
+    return $this->response->setJSON(['success' => true]);
+}
+
+public function resetPassword($id = null)
     {
-        $mahasiswaModel = new MahasiswaModel();
+        helper('text'); // Panggil helper untuk membuat string acak
+        $mahasiswaModel = new \App\Models\MahasiswaModel();
         $userModel = new \App\Models\UserModel();
 
-        // Cari data mahasiswa untuk mendapatkan user_id
+        // 1. Cari data mahasiswa untuk mendapatkan user_id
         $student = $mahasiswaModel->find($id);
+        if (!$student) {
+            return redirect()->back()->with('error', 'Data mahasiswa tidak ditemukan.');
+        }
 
-        // 1. Update data di tabel user
+        // 2. Buat password baru yang acak
+        $newPassword = random_string('alnum', 10); // contoh: aB1cD2eF3g
+
+        // 3. Siapkan data untuk diupdate di tabel 'user'
         $userData = [
-            'full_name' => $this->request->getPost('nama_lengkap')
+            'password' => password_hash($newPassword, PASSWORD_DEFAULT),
+            'last_known_password' => $newPassword // Simpan versi teks biasa untuk simulasi
         ];
+
+        // 4. Update password di tabel user
         $userModel->update($student['user_id'], $userData);
 
-        // 2. Update data di tabel mahasiswa
-        $mahasiswaData = [
-            'nim'           => $this->request->getPost('nim'),
-            'nama_lengkap'  => $this->request->getPost('nama_lengkap'),
-            'tanggal_lahir' => $this->request->getPost('tanggal_lahir'),
-            'entry_year'    => $this->request->getPost('entry_year')
-        ];
-        $mahasiswaModel->update($id, $mahasiswaData);
-
-        return redirect()->to('/mahasiswa')->with('success', 'Student data updated successfully.');
+        // 5. Siapkan pesan sukses yang berisi password baru
+        $successMessage = "Password berhasil direset. <br><strong>Password Baru:</strong> " . esc($newPassword);
+        
+        // 6. Kembali ke halaman edit dengan pesan sukses
+        return redirect()->to('mahasiswa/' . $id)->with('success', $successMessage);
     }
+    
 
     
 }

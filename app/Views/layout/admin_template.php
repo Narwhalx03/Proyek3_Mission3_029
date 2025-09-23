@@ -67,6 +67,11 @@
         .footer p {
             margin: 0;
         }
+        .menu a.active {
+        color: var(--text-dark);
+        font-weight: 600;
+        border-bottom: 3px solid var(--primary-color);
+        }
     </style>
 </head>
 <body>
@@ -89,6 +94,20 @@
     <footer class="footer">
         <p>&copy; <?= date('Y') ?> Akademik System</p>
     </footer>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+    // Skrip untuk membuat menu aktif
+    const currentLocation = window.location.href;
+    const menuLinks = document.querySelectorAll('.menu a');
+
+    menuLinks.forEach(link => {
+        // Cek jika URL saat ini dimulai dengan href link (lebih fleksibel)
+        if (currentLocation.startsWith(link.href)) {
+            link.classList.add('active');
+        }
+    });
+});
+</script>
 
 </body>
 </html>

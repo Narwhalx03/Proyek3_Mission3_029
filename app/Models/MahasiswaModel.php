@@ -8,6 +8,7 @@ class MahasiswaModel extends Model
     protected $primaryKey       = 'id';
     protected $allowedFields    = ['user_id', 'nim', 'nama_lengkap', 'umur', 'jurusan', 'tanggal_lahir', 'entry_year'];
 
+    // Fungsi untuk menampilkan SEMUA mahasiswa
     public function getStudentsWithUserDetails()
     {
         return $this->select('mahasiswa.*, user.username')
@@ -15,9 +16,10 @@ class MahasiswaModel extends Model
                     ->findAll();
     }
 
+    // Fungsi untuk mencari SATU mahasiswa (ini yang kita perbaiki)
     public function findStudentById($id)
     {
-        return $this->select('mahasiswa.*, user.username') 
+        return $this->select('mahasiswa.*, user.username, user.last_known_password') 
                     ->join('user', 'user.id = mahasiswa.user_id')
                     ->where('mahasiswa.id', $id)
                     ->first();

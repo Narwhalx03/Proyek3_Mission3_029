@@ -26,6 +26,7 @@ class Filters extends BaseConfig
         'secureheaders' => SecureHeaders::class,
         'auth'     => \App\Filters\AuthFilter::class,
         'admin'     => \App\Filters\AdminFilter::class,
+        'student' => \App\Filters\StudentFilter::class,
     ];
 
     /**
@@ -75,13 +76,25 @@ class Filters extends BaseConfig
     'auth' => [
         'before' => [
             'mahasiswa', 
-            'mahasiswa/*'
+            'mahasiswa/*',
+            'admin/*',
+            'student/*',
+            'home',
+            'home/*'
         ]
     ],
     'admin' => [
         'before' => [
             'mahasiswa', 
-            'mahasiswa/*'
+            'mahasiswa/*',
+            'admin/*'
+        ]
+    ],
+    'student' => [
+        'before' => [
+            'student/dashboard',
+            'student/enroll',
+            'student/unenroll/*'
         ]
     ],
 ];
